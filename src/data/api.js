@@ -1,6 +1,7 @@
 const COINGECKO = 'https://api.coingecko.com/api/v3';
 const MEMPOOL   = 'https://mempool.space/api';
 const FNG       = 'https://api.alternative.me/fng';
+const FRED      = 'https://api.stlouisfed.org/fred/series/observations';
 
 // BTC daily price history → [{date: 'YYYY-MM-DD', price: number}]
 export async function fetchBtcHistory(days = 730) {
@@ -67,6 +68,90 @@ export async function fetchBlockStats() {
     nextDiffAdj: `${adjPct >= 0 ? '+' : ''}${adjPct.toFixed(1)}%`,
     mempoolTx:   mempool.count ?? 0,
     avgFee:      `${fees.hourFee ?? '—'} sat/vb`,
+  };
+}
+
+// ── FRED ─────────────────────────────────────────────────────────────────────
+
+function fredUrl(seriesId, apiKey, startDate) {
+  return `${FRED}?series_id=${seriesId}&api_key=${apiKey}&file_type=json&observation_start=${startDate}&sort_order=asc`;
+}
+
+async function fredSeries(seriesId, apiKey, startDate) {
+  const r = await fetch(fredUrl(seriesId, apiKey, startDate));
+  if (!r.ok) throw new Error(`FRED ${seriesId} ${r.status}`);
+  const { observations } = await r.json();
+  // Filter out missing values (".")
+  return observations
+    .filter(o => o.value !== '.')
+    .map(o => ({ date: o.date, value: parseFloat(o.value) }));
+}
+
+// Forward-fill sparse (weekly/monthly) series to match a daily date array
+function forwardFill(sparse, dailyDates) {
+  const map = new Map(sparse.map(d => [d.date, d.value]));
+  let last = sparse[0]?.value ?? 0;
+  return dailyDates.map(date => {
+    if (map.has(date)) last = map.get(date);
+    return { date, value: last };
+  });
+}
+
+// Yield curve 2s10s spread → [{date, spread}] in basis points
+export async function fetchYieldCurve(apiKey, startDate) {
+  const data = await fredSeries('T10Y2Y', apiKey, startDate);
+  // T10Y2Y is already 10Y-2Y in percentage points; convert to bps
+  return data.map(d => ({ date: d.date, spread: parseFloat((d.value * 100).toFixed(1)) }));
+}
+
+// Broad US Dollar Index (DTWEXBGS) → [{date, value}]
+// Weekly series — forward-filled to daily
+export async function fetchDxy(apiKey, startDate, dailyDates) {
+  const sparse = await fredSeries('DTWEXBGS', apiKey, startDate);
+  return forwardFill(sparse, dailyDates);
+}
+
+// Fed balance sheet assets (WALCL, weekly, millions) → [{date, value}] in trillions
+export async function fetchFedBalanceSheet(apiKey, startDate, dailyDates) {
+  const sparse = await fredSeries('WALCL', apiKey, startDate);
+  const inTrillions = sparse.map(d => ({ date: d.date, value: parseFloat((d.value / 1e6).toFixed(3)) }));
+  return forwardFill(inTrillions, dailyDates);
+}
+
+// US 10Y yield (GS10, daily) → [{date, value}]
+export async function fetchUs10y(apiKey, startDate) {
+  return fredSeries('GS10', apiKey, startDate);
+}
+
+// Credit spreads HY − IG (bps) → [{date, value}]
+export async function fetchCreditSpreads(apiKey, startDate) {
+  const [hy, ig] = await Promise.all([
+    fredSeries('BAMLH0A0HYM2', apiKey, startDate),
+    fredSeries('BAMLC0A0CM',   apiKey, startDate),
+  ]);
+  const igMap = new Map(ig.map(d => [d.date, d.value]));
+  return hy
+    .filter(d => igMap.has(d.date))
+    .map(d => ({ date: d.date, value: parseFloat((d.value - igMap.get(d.date)).toFixed(1)) }));
+}
+
+// Fetch all FRED macro series in parallel
+// dailyDates: string[] of 'YYYY-MM-DD' matching your btcPrice array — used to forward-fill weekly data
+export async function fetchFredMacro(apiKey, startDate, dailyDates) {
+  const [yieldCurve, dxy, fedBalanceSheet, us10y, creditSpreads] = await Promise.allSettled([
+    fetchYieldCurve(apiKey, startDate),
+    fetchDxy(apiKey, startDate, dailyDates),
+    fetchFedBalanceSheet(apiKey, startDate, dailyDates),
+    fetchUs10y(apiKey, startDate),
+    fetchCreditSpreads(apiKey, startDate),
+  ]);
+
+  return {
+    yieldCurve:      yieldCurve.status      === 'fulfilled' ? yieldCurve.value      : null,
+    dxy:             dxy.status             === 'fulfilled' ? dxy.value             : null,
+    fedBalanceSheet: fedBalanceSheet.status === 'fulfilled' ? fedBalanceSheet.value : null,
+    us10y:           us10y.status           === 'fulfilled' ? us10y.value           : null,
+    creditSpreads:   creditSpreads.status   === 'fulfilled' ? creditSpreads.value   : null,
   };
 }
 

@@ -19,8 +19,11 @@ import {
   fetchCoinPrices,
   fetchFearGreedHistory,
   fetchBlockStats,
+  fetchFredMacro,
   calcRsiFromPrices,
 } from '../data/api';
+
+const FRED_KEY = import.meta.env.VITE_FRED_API_KEY ?? '';
 
 const MarketDataContext = createContext(null);
 
@@ -100,6 +103,22 @@ export function MarketDataProvider({ children }) {
         patch.blockStats = bs;
       } catch (e) {
         errs.blockStats = e.message;
+      }
+
+      // FRED macro series (requires VITE_FRED_API_KEY in .env.local)
+      if (FRED_KEY) {
+        try {
+          const btcDates  = (patch.btcPrice ?? mockBtcPrice).map(d => d.date);
+          const startDate = btcDates[0];
+          const fred      = await fetchFredMacro(FRED_KEY, startDate, btcDates);
+          if (fred.yieldCurve)      patch.yieldCurve      = fred.yieldCurve;
+          if (fred.dxy)             patch.dxy             = fred.dxy;
+          if (fred.fedBalanceSheet) patch.fedBalanceSheet = fred.fedBalanceSheet;
+          if (fred.us10y)           patch.us10y           = fred.us10y;
+          if (fred.creditSpreads)   patch.creditSpreads   = fred.creditSpreads;
+        } catch (e) {
+          errs.fred = e.message;
+        }
       }
 
       if (!cancelled) {
