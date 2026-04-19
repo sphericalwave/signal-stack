@@ -244,10 +244,14 @@ export const compositeSignals = {
 };
 
 export const altcoins = {
-  BTC:  { price: 84210,  change24h: 2.4,  rsi1w: 61, mvrv: 2.1,    signal: 'accumulate', sparkline: btcRaw.slice(-30)  },
-  ETH:  { price: 1584,   change24h: -0.8, rsi1w: 44, ethbtc: 0.0188, signal: 'watch',    sparkline: walk(1600, 0.04, 0, 30)   },
-  SOL:  { price: 131.4,  change24h: 3.1,  rsi1w: 55, tps: 3241,    signal: 'accumulate', sparkline: walk(125, 0.05, 0.001, 30) },
-  HYPE: { price: 14.82,  change24h: 5.7,  rsi1w: 67, perpVol: '4.1B', signal: 'watch',  sparkline: walk(12, 0.07, 0.003, 30)  },
+  BTC:  { price: 84210,  change24h: 2.4,  rsi1w: 61, mvrv: 2.1,     signal: 'accumulate', sparkline: btcRaw.slice(-30),
+          zscores: { rsi: 0.8, momentum: 1.2, onchain: 1.8, relStrength: 0 } },
+  ETH:  { price: 1584,   change24h: -0.8, rsi1w: 44, ethbtc: 0.0188, signal: 'watch',      sparkline: walk(1600, 0.04, 0, 30),
+          zscores: { rsi: -0.4, momentum: -1.1, onchain: -0.3, relStrength: -2.1 } },
+  SOL:  { price: 131.4,  change24h: 3.1,  rsi1w: 55, tps: 3241,     signal: 'accumulate', sparkline: walk(125, 0.05, 0.001, 30),
+          zscores: { rsi: 0.3, momentum: 0.9, onchain: 1.1, relStrength: -0.4 } },
+  HYPE: { price: 14.82,  change24h: 5.7,  rsi1w: 67, perpVol: '4.1B', signal: 'watch',    sparkline: walk(12, 0.07, 0.003, 30),
+          zscores: { rsi: 1.4, momentum: 2.1, onchain: 0.7, relStrength: 0.8 } },
 };
 
 export const blockStats = {
