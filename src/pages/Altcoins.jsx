@@ -1,4 +1,4 @@
-import { altcoins } from '../data/mockData';
+import { useMarketData } from '../context/MarketDataContext';
 import CoinCard from '../components/CoinCard';
 
 const Z_METRICS = [
@@ -19,6 +19,7 @@ function zBgColor(v) {
 }
 
 export default function Altcoins() {
+  const { data: { altcoins } } = useMarketData();
   const tickers = Object.keys(altcoins);
 
   return (

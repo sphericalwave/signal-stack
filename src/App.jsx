@@ -6,9 +6,11 @@ import Macro from './pages/Macro';
 import News from './pages/News';
 import Altcoins from './pages/Altcoins';
 import Alerts from './pages/Alerts';
+import { MarketDataProvider } from './context/MarketDataContext';
 
 export default function App() {
   return (
+    <MarketDataProvider>
     <BrowserRouter>
       <div className="min-h-screen bg-[#0a0b0e]">
         <Nav />
@@ -25,5 +27,6 @@ export default function App() {
         </main>
       </div>
     </BrowserRouter>
+    </MarketDataProvider>
   );
 }

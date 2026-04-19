@@ -5,11 +5,7 @@ import {
   CartesianGrid, Tooltip, Legend,
   ReferenceArea, ReferenceLine,
 } from 'recharts';
-import {
-  compositeSignals, zscoreIndicators,
-  btcPrice, fearGreed, globalM2, mvrv,
-  rsiWeekly, twitterSentiment, googleTrends,
-} from '../data/mockData';
+import { useMarketData } from '../context/MarketDataContext';
 import ZScoreTable from '../components/ZScoreTable';
 import SignalBadge from '../components/SignalBadge';
 import ChartPanel from '../components/ChartPanel';
@@ -31,30 +27,7 @@ const fmtDate = (v) => {
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo - 1] + " '" + yr.slice(2);
 };
 
-// ── Data prep (sampled to every 5th day ≈ 146 pts) ─────────────────────────
 const S = 5;
-
-const btcMvrvData = btcPrice
-  .filter((_, i) => i % S === 0)
-  .map((d, i) => ({ date: d.date, btc: d.price, mvrv: mvrv[i * S]?.value }));
-
-const m2BtcData = btcPrice
-  .slice(90)
-  .filter((_, i) => i % S === 0)
-  .map((d, i) => ({ date: d.date, btc: d.price, m2: globalM2[i * S]?.value }));
-
-const rsiData = rsiWeekly
-  .filter((_, i) => i % S === 0)
-  .map((d) => ({ date: d.date, rsi: d.value }));
-
-const sentimentData = fearGreed
-  .filter((_, i) => i % S === 0)
-  .map((d, i) => ({
-    date: d.date,
-    fg: d.value,
-    tw: Math.round((twitterSentiment[i * S]?.value ?? 0) * 50 + 50),
-    gt: googleTrends[i * S]?.value,
-  }));
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 function CompositeCard({ signal }) {
@@ -103,6 +76,35 @@ function MiniGauge({ label, value, max, colorCls }) {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const { data } = useMarketData();
+  const {
+    btcPrice, fearGreed, globalM2, mvrv,
+    rsiWeekly, twitterSentiment, googleTrends,
+    compositeSignals, zscoreIndicators,
+  } = data;
+
+  const btcMvrvData = btcPrice
+    .filter((_, i) => i % S === 0)
+    .map((d, i) => ({ date: d.date, btc: d.price, mvrv: mvrv[i * S]?.value }));
+
+  const m2BtcData = btcPrice
+    .slice(90)
+    .filter((_, i) => i % S === 0)
+    .map((d, i) => ({ date: d.date, btc: d.price, m2: globalM2[i * S]?.value }));
+
+  const rsiData = rsiWeekly
+    .filter((_, i) => i % S === 0)
+    .map((d) => ({ date: d.date, rsi: d.value }));
+
+  const sentimentData = fearGreed
+    .filter((_, i) => i % S === 0)
+    .map((d, i) => ({
+      date: d.date,
+      fg:   d.value,
+      tw:   Math.round((twitterSentiment[i * S]?.value ?? 0) * 50 + 50),
+      gt:   googleTrends[i * S]?.value,
+    }));
+
   const latestFG   = fearGreed[fearGreed.length - 1]?.value ?? 0;
   const latestM2   = globalM2[globalM2.length - 1]?.value ?? 0;
   const latestMVRV = mvrv[mvrv.length - 1]?.value ?? 0;
